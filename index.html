@@ -238,6 +238,25 @@ video{display:block;width:100%;height:100%;object-fit:cover;background:#000}
 .trend .go.alt{background:#efebe5;color:var(--ink)}
 .ticon{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:19px;flex-shrink:0}
 .up{color:#c2410c}.peak{color:var(--warn)}
+.trend .go.on{opacity:1;cursor:pointer;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.trend .go.tapme{animation:pulse 1s infinite}
+
+/* ---------- 加演：希区柯克变焦 ---------- */
+.hzbox{position:relative;aspect-ratio:16/10;border-radius:14px;overflow:hidden;background:#000}
+.hzbox video{object-fit:cover}
+.hzs{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hzrow{display:flex;gap:10px;align-items:center;margin-top:10px}
+.hzcam{width:118px;flex-shrink:0}
+.hzinfo{flex:1;font-size:12.5px;color:var(--muted)}
+.hzinfo b{display:block;font-size:20px;color:var(--ink);line-height:1.25;margin-bottom:6px}
+.hzmeter{height:6px;border-radius:3px;background:#e9e5df;margin:4px 0 8px;overflow:hidden}
+.hzmeter i{display:block;height:100%;background:#3b82f6}
+.hzvf{flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:0 10px}
+.hzvf .rlabel{top:auto;bottom:8px}
+.hzpos{display:flex;gap:10px;align-items:center;background:#1d1d22;border-radius:14px;padding:10px}
+.hzpos .hzinfo{color:rgba(255,255,255,.6)}
+.hzpos .hzinfo b{color:#fff}
+.hzdist{position:absolute;right:8px;top:8px;font-size:12px;background:rgba(0,0,0,.5);padding:2px 8px;border-radius:8px;z-index:5}
 </style>
 </head>
 <body>
@@ -261,10 +280,11 @@ const ease = p => 1-Math.pow(1-Math.min(1,Math.max(0,p)),3);
 const S = {
   view:'ig', shareOpen:false, slow:true, sound:true, fromRec:false,
   shot:0, phase:'ready', takes:[0,0,0], retakeFrom:null,
-  checks:[false,false,false,false], fb:null, sheet:null, startAt:null, cap:null
+  checks:[false,false,false,false], fb:null, sheet:null, startAt:null, cap:null,
+  hzPhase:'ready', hzDone:false, hzAt:null
 };
 function resetFlow(){
-  Object.assign(S,{shareOpen:false,fromRec:false,shot:0,phase:'ready',takes:[0,0,0],retakeFrom:null,checks:[false,false,false,false],fb:null,sheet:null});
+  Object.assign(S,{shareOpen:false,fromRec:false,shot:0,phase:'ready',takes:[0,0,0],retakeFrom:null,checks:[false,false,false,false],fb:null,sheet:null,hzPhase:'ready',hzDone:false,hzAt:null});
 }
 
 /* ===== 计时器与动画帧：切页面时统一清掉 ===== */
@@ -337,7 +357,7 @@ function camSvg(d,p,{small=false}={}){
 
 const sb = dark => `<div class="sb${dark?' dk':''}"><span>9:41</span><span class="ic">5G <span class="bat"></span></span></div>`;
 const heat = () => `<span class="heat">「探头卡点」类视频近 7 天热度上升 · 示意数据</span>`;
-const vid = (id,extra='') => `<video id="${id}" src="assets/ref.mp4" poster="assets/poster.jpg" playsinline loop autoplay ${S.sound?'':'muted'} ${extra}></video>`;
+const vid = (id,extra='',src='ref') => `<video id="${id}" src="assets/${src}.mp4" poster="assets/${src==='ref'?'poster':src+'-poster'}.jpg" playsinline loop autoplay ${S.sound?'':'muted'} ${extra}></video>`;
 function playVids(){
   screen.querySelectorAll('video').forEach(v => { v.muted = !S.sound; v.play().catch(()=>{ v.muted = true; v.play().catch(()=>{}); }); });
 }
@@ -627,24 +647,192 @@ A.preview = () => {
 };
 
 V.done = () => {
+  const hz = S.hzDone, from = hz ? S.hzAt : S.startAt;
   let used = '';
-  if(S.startAt){ const s = Math.round((Date.now()-S.startAt)/1000); used = `${Math.floor(s/60)} 分 ${s%60} 秒`; }
+  if(from){ const s = Math.round((Date.now()-from)/1000); used = `${Math.floor(s/60)} 分 ${s%60} 秒`; }
+  const real = hz ? '真实拍摄约 1–2 分钟' : '真实拍摄约 5–10 分钟';
   return `
 <div class="app">
   ${sb()}
-  <div class="hd"><button class="bk" data-act="toPreview">‹</button>已发布</div>
+  <div class="hd"><button class="bk" data-act="${hz?'hzPreview':'toPreview'}">‹</button>已发布</div>
   <div class="body">
-    <div class="okb"><div class="ci">✓</div><h3>你家猫的四面探头已发布</h3><p class="muted" style="font-size:13px">在潮流热度还在的时候发出去了</p></div>
-    <div class="card metric"><div><div class="l">从刷到这条视频，到发出你的版本</div><div class="l">${used?'本次演示实际用时；真实拍摄约 5–10 分钟':'真实拍摄约 5–10 分钟'}</div></div><div class="v">${used||'约 8 分钟'}</div></div>
+    <div class="okb"><div class="ci">✓</div><h3>你家猫的${hz?'希区柯克变焦':'四面探头'}已发布</h3><p class="muted" style="font-size:13px">在潮流热度还在的时候发出去了</p></div>
+    <div class="card metric"><div><div class="l">从${hz?'点开这个潮流':'刷到这条视频'}，到发出你的版本</div><div class="l">${used?`本次演示实际用时；${real}`:real}</div></div><div class="v">${used||(hz?'约 2 分钟':'约 8 分钟')}</div></div>
     <div class="row2"><button class="btn sm ghost" data-act="toastSave">保存到相册</button><button class="btn sm ghost" data-act="toastTpl">存为我的模板</button></div>
     <div class="sec"><span>趁热度还在，再拍一个</span><span>潮流雷达</span></div>
     <div class="card" style="padding:2px 14px">
-      <div class="trend"><span class="ticon" style="background:#fff0e8">🐈</span><div><div class="t">小猫踏步舞</div><div class="s up">抖音热榜 #43 · 上升中</div></div><span class="go">拍同款</span></div>
+      <div class="trend"><span class="ticon" style="background:#eef0ff">🎬</span><div><div class="t">希区柯克变焦</div><div class="s up">运镜挑战 · 近 7 天上升 · 示意</div></div><button class="go on" data-act="hz">${hz?'再拍一次':'拍同款'}</button></div>
       <div class="trend"><span class="ticon" style="background:#f3e8ff">💃</span><div><div class="t">ILLIT《我要逮捕你》舞蹈挑战</div><div class="s peak">官方活动 11 月 15 日截止</div></div><span class="go">拍同款</span></div>
       <div class="trend"><span class="ticon" style="background:#e8f1ff">✨</span><div><div class="t">萌宠滑镜定格</div><div class="s muted">热榜 #19 · AI 特效，不用拍</div></div><span class="go alt">一键特效</span></div>
     </div>
   </div>
 </div>`;
+};
+
+/* ===== 加演：希区柯克变焦 =====
+   用户的版本是一个简单的 3D 房间：猫在 Z=0，背景在后面。
+   机位离猫 d 米，焦距 F = HZK·d 时猫的大小不变、背景越拉越远。拍摄时 App 按这个关系实时调变焦（2.0x → 0.6x）。
+   节奏照原片：0.4–2.0 秒抬手拍耳朵，2.8 秒瞪眼，2.9 秒起才变焦。下面的函数都按"第 t 秒"取画面。 */
+const HZK = 100, HZD = [4, 1.2], HZLEN = 3.87, HZPAW = [.4, 2], HZEYE = 2.8, HZGO = 2.9;
+const clamp01 = x => Math.min(1, Math.max(0, x));
+const hzD = t => { const p = clamp01((t-HZGO)/(HZLEN-HZGO)); return HZD[0] - (HZD[0]-HZD[1]) * (p<.5 ? 2*p*p : 1-2*(1-p)*(1-p)); };
+const hzZoom = d => d/2;
+const HZBEATS = [['拍耳朵',0,HZPAW[1],'#a855f7'],['愣住',HZPAW[1],HZGO,'#3b82f6'],['变焦',HZGO,HZLEN,'var(--accent)']];
+const hzBeat = t => t>=HZGO ? 2 : t>=HZPAW[1] ? 1 : 0;
+function hzRoom(t, {lock=false}={}){
+  const d = hzD(t), W = 160, H = 100, cx = 80, cy = 44, F = HZK*d;
+  const Pn = (X,Y,Z) => { const z = Math.max(.12, d+Z); return [cx+F*X/z, cy+F*Y/z]; };
+  const P = (X,Y,Z) => Pn(X,Y,Z).map(v=>v.toFixed(1)).join(',');
+  const q = (pts,fill) => `<polygon points="${pts.map(a=>P(...a)).join(' ')}" fill="${fill}"/>`;
+  const back = (x0,x1,y0,y1,z,fill) => q([[x0,y0,z],[x1,y0,z],[x1,y1,z],[x0,y1,z]],fill);
+  const side = (x,z0,z1,y0,y1,fill) => q([[x,y0,z0],[x,y0,z1],[x,y1,z1],[x,y1,z0]],fill);
+  const flat = (x0,x1,z0,z1,y,fill) => q([[x0,y,z0],[x1,y,z0],[x1,y,z1],[x0,y,z1]],fill);
+  const X = 2.2, YC = -1.3, YF = 1, ZB = 7, ZN = -d+.15;
+  const line = (a,b) => { const [x1,y1] = Pn(...a), [x2,y2] = Pn(...b); return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#a87c52" stroke-width=".5"/>`; };
+  const [px,py] = Pn(-1.52,.25,1.6), pr = F*.45/(d+1.6);
+  const cw = 60, ch = cw*2.6, hx = cx-cw/2, hy = cy-.2*ch, hw = cw*.42;
+  const br = (x,y,sx,sy) => `<path d="M${x} ${y+sy*6}V${y}H${x+sx*6}" fill="none" stroke="#ffd60a" stroke-width="1.2"/>`;
+  // 猫自己的坐标系（100×260）：爪子从身前抬到右耳边，2.8 秒瞪大眼睛
+  const pw = ease((t-HZPAW[0])/(HZPAW[1]-HZPAW[0])), ax = 70+12*pw, ay = 175-147*pw;
+  const extra = (t>=HZEYE ? [36,64].map(x=>`<circle cx="${x}" cy="49" r="8" fill="#fff"/><circle cx="${x}" cy="50" r="4.5" fill="#2b2220"/>`).join('') : '')
+    + `<path d="M64 150 L${ax.toFixed(1)} ${ay.toFixed(1)}" stroke="#eda25a" stroke-width="15" stroke-linecap="round"/><ellipse cx="${ax.toFixed(1)}" cy="${ay.toFixed(1)}" rx="9" ry="10" fill="#f3b878"/>`;
+  const c = cat().replace('<rect x="30" y="70" width="40" height="190" rx="14"','<ellipse cx="50" cy="150" rx="40" ry="72"')
+    .replace('<svg ',`<svg x="${hx.toFixed(1)}" y="${hy.toFixed(1)}" width="${cw}" height="${ch}" `).replace(/<\/svg>\s*$/, extra+'</svg>');
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" class="hzs">
+    ${flat(-X,X,ZN,ZB,YC,'#f1ece4')}${flat(-X,X,ZN,ZB,YF,'#c4976a')}
+    ${[-1.4,-.7,0,.7,1.4].map(x=>line([x,YF,ZN],[x,YF,ZB])).join('')}
+    ${side(-X,ZN,ZB,YC,YF,'#e6d9c6')}${side(X,ZN,ZB,YC,YF,'#dccbb2')}
+    ${back(-X,X,YC,YF,ZB,'#d4c2a6')}
+    ${back(.5,1.7,-.9,.1,ZB,'#fff')}${back(.58,1.62,-.82,.02,ZB,'#9fd3f4')}
+    ${back(-1.8,-.9,-.8,-.15,ZB,'#6b4f3a')}${back(-1.72,-.98,-.72,-.23,ZB,'#8fb38a')}
+    ${side(-X,3,4.2,-.4,YF,'#a77b52')}${side(X,2,3,-.75,-.1,'#5a6f8f')}
+    ${[.6,2.6,4.6].map(z=>flat(-.45,.45,z,z+.7,YC,'#fffbe8')).join('')}
+    ${back(-1.75,-1.3,.6,1,1.6,'#8a5a3b')}<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${pr.toFixed(1)}" fill="#5f9e5a"/>
+    ${c}
+    ${lock?br(cx-hw,cy-hw*.9,1,1)+br(cx+hw,cy-hw*.9,-1,1)+br(cx-hw,cy+hw*.9,1,-1)+br(cx+hw,cy+hw*.9,-1,-1):''}
+  </svg>`;
+}
+/* 俯视机位图：手机沿虚线往前推，蓝色是拍进画面的背景，越推越宽 */
+function hzCam(t){
+  const y = 80 + hzD(t)*28, w = 16*(y-34)/(y-80);
+  return `<svg viewBox="0 0 160 200" class="camsvg">
+    <rect width="160" height="200" rx="12" fill="#eef0f3"/>
+    <text x="10" y="18" font-size="10.5" font-weight="700" fill="#1c1b1f">机位 · 俯视</text>
+    <line x1="14" y1="34" x2="146" y2="34" stroke="#cbbfae" stroke-width="4" stroke-linecap="round"/>
+    <text x="146" y="48" font-size="8.5" fill="#6b6872" text-anchor="end">背景墙</text>
+    <polygon points="80,${y} ${80-w},34 ${80+w},34" fill="rgba(59,130,246,.14)" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3 2"/>
+    <line x1="${80-w}" y1="34" x2="${80+w}" y2="34" stroke="#3b82f6" stroke-width="4" stroke-linecap="round"/>
+    <line x1="80" y1="192" x2="80" y2="114" stroke="#b9bcc4" stroke-width="2.2" stroke-dasharray="1 5" stroke-linecap="round"/>
+    <line x1="80" y1="192" x2="80" y2="${y}" stroke="#e0353f" stroke-width="2.6" stroke-dasharray="1 5" stroke-linecap="round"/>
+    <g transform="translate(80 80) scale(1.2)"><path d="M-9 -4 L-7 -15 L-1 -8Z M9 -4 L7 -15 L1 -8Z" fill="#eda25a"/><circle r="9" fill="#eda25a"/></g>
+    <rect x="69" y="${y-5}" width="22" height="10" rx="3" fill="#1c1b1f"/><circle cx="80" cy="${y-5}" r="2.4" fill="#60a5fa"/>
+    <text x="90" y="186" font-size="8.5" fill="#1c1b1f">↑ 往前推</text>
+  </svg>`;
+}
+const hzPos = t => `<b>离猫 ${hzD(t).toFixed(1)} 米</b>${t<HZGO?'先站着别动，等口令':'往前走'}<br>变焦 <b style="display:inline;font-size:13px">${hzZoom(hzD(t)).toFixed(1)}x</b> · 由 App 自动调`;
+const hzInfo = t => {
+  const d = hzD(t), y = 80+d*28, r = (y-34)/(y-80) / (192-34)*(192-80), [n,,,col] = HZBEATS[hzBeat(t)];
+  return `此刻：<span style="color:${col};font-weight:700">${n}</span><b>离主角 ${d.toFixed(1)} 米</b>背景取景范围 ×${r.toFixed(1)}<div class="hzmeter"><i style="width:${(r/1.7*100).toFixed(0)}%"></i></div>脸的大小 <b style="display:inline;font-size:13px">不变</b>`;
+};
+const hzTl = id => `<div class="tl" id="${id}">${HZBEATS.map(([n,a,b,col])=>`<div style="flex:${b-a};background:${col}">${n}</div>`).join('')}</div>`;
+const hzTlOn = (id,t) => document.querySelectorAll(`#${id} div`).forEach((el,j)=>el.classList.toggle('on',j===hzBeat(t)));
+
+V.hz = () => `
+<div class="app">
+  ${sb()}
+  <div class="hd"><button class="bk" data-act="toDone">‹</button>拆解结果</div>
+  <div class="body">
+    <div class="card src"><div class="thumb"><img src="assets/hz-poster.jpg" alt=""></div><div><div class="t">希区柯克变焦 · 电影片段</div><div class="s">1 个镜头 · 3.9 秒 · 来自潮流雷达</div></div></div>
+    <div class="card trick">
+      <div class="k">门道</div>
+      <h3>先拍耳朵、愣住，最后 1 秒背景突然拉远</h3>
+      <ol>
+        <li>前 2.9 秒镜头不动：主角<b>抬手拍耳朵，然后愣住</b></li>
+        <li>第 2.9 秒才变焦：镜头一边<b>往前推</b>，一边<b>拉到广角</b></li>
+        <li>两个变化刚好抵消，<b>脸一直一样大</b>，只有背景越拉越远</li>
+      </ol>
+      <div class="alt">动作是引子，变焦是反应，顺序反了就没有"被吓到"的感觉。剧组靠轨道车加变焦镜头配合；小影的拍法：<b style="color:var(--ink)">你听口令往前走，变焦交给 AI。</b></div>
+    </div>
+    <div class="card ana">
+      <div class="top">虚拟机位分析 <span class="tag">与原片同步 · AI 估算</span></div>
+      <div class="hzbox" style="margin-top:10px">${vid('hv','','hz')}<div class="rlabel">原片</div></div>
+      <div class="hzrow"><div class="hzcam" id="hcam">${hzCam(0)}</div><div class="hzinfo" id="hinfo">${hzInfo(0)}</div></div>
+    </div>
+    <div class="sec"><span>镜头脚本 · 3 拍 · 共 3.9 秒</span><span>先动作，后变焦</span></div>
+    ${hzTl('htl')}
+    <div class="tlx" style="position:relative"><span>0s</span><span style="position:absolute;left:${(HZGO/HZLEN*100).toFixed(1)}%;transform:translateX(-50%)">2.9s</span><span>3.9s</span></div>
+  </div>
+  <div class="foot"><button class="btn" data-act="hzShoot">只拍 1 段 · 约 1 分钟</button></div>
+</div>`;
+A.hz = () => {
+  playVids();
+  const v = $('#hv');
+  loop(() => { const t = v.currentTime; $('#hcam').innerHTML = hzCam(t); $('#hinfo').innerHTML = hzInfo(t); hzTlOn('htl',t); });
+};
+
+V.hzShoot = () => {
+  const p = S.hzPhase, t = p==='ready' ? 0 : HZLEN;
+  let over = '', panel = '';
+  if(p==='ready') over = `<div class="gtag">横着拿手机，站在离猫 3 步远的地方</div><div class="entry" style="left:50%;bottom:10px;transform:translateX(-50%);--n:translate(-50%,-5px)">拍耳朵 → 愣住 → 听到「走」往前</div>`;
+  if(p==='rec') over = `<div class="pbar"><i id="pb"></i></div><div class="rec">录制中</div><div class="hzdist" id="hdist">变焦 ${hzZoom(HZD[0]).toFixed(1)}x · 防抖开</div>
+    <div class="cue" id="hcue" style="bottom:10px">${HZBEATS.map(([n],i)=>`<span class="${i===2?'hit':''}">${i===2?'走！':n}</span>`).join('')}</div>`;
+  if(p==='ready'||p==='rec'){
+    panel = `<div class="ins">${p==='ready'?'先让猫<b>拍耳朵、愣住</b>，听到「走」再<b>往前走 2 步</b>':'先站着别动，<b>听到「走」再往前走</b>'}</div>
+      <button class="shutter${p==='ready'?'':' dis'}" data-act="hzRec"><i></i></button>`;
+  } else if(p==='checking'){
+    panel = `<div class="res"><h3>正在检查这一段…</h3><ul><li>对比动作节奏、主角位置和抖动</li></ul></div>`;
+  } else {
+    panel = `<div class="res"><h3><span class="okc">✓</span>这一段可以用</h3><ul><li class="okc">✓ 先拍耳朵再愣住，节奏和原片一致</li><li class="okc">✓ 第 2.9 秒才开始变焦，和原片同一拍</li><li class="okc">✓ 边走边变焦，猫脸大小一直没变</li></ul><button class="btn sm" data-act="hzGen">生成成片</button></div>`;
+  }
+  return `
+<div class="app cam">
+  ${sb(true)}
+  <div class="hd"><button class="bk" data-act="hz">✕</button>希区柯克变焦 · 1 段</div>
+  <div class="hzvf">
+    <div class="hzbox"><div id="hout">${hzRoom(t,{lock:true})}</div><div class="rlabel">取景框 · AI 变焦后</div>${over}</div>
+    <div class="hzpos"><div class="hzcam" id="hpos">${hzCam(t)}</div><div class="hzinfo" id="hpinfo">${hzPos(t)}</div></div>
+  </div>
+  <div class="cpanel">${panel}</div>
+</div>`;
+};
+A.hzShoot = () => {
+  const p = S.hzPhase, LEN = HZLEN*1000;
+  if(p==='rec'){
+    const t0 = performance.now(), pb = $('#pb');
+    pb.style.transition = `width ${LEN}ms linear`;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>pb.style.width='100%'));
+    loop(() => {
+      const t = Math.min(HZLEN,(performance.now()-t0)/1000);
+      $('#hout').innerHTML = hzRoom(t,{lock:true});
+      $('#hpos').innerHTML = hzCam(t);
+      $('#hpinfo').innerHTML = hzPos(t);
+      $('#hdist').textContent = `变焦 ${hzZoom(hzD(t)).toFixed(1)}x · 防抖开`;
+      document.querySelectorAll('#hcue span').forEach((s,j)=>s.classList.toggle('on',j===hzBeat(t)));
+    });
+    later(()=>go('hzShoot',{hzPhase:'checking'}), LEN+80);
+  }
+  if(p==='checking') later(()=>go('hzShoot',{hzPhase:'pass'}), 900);
+};
+
+V.hzPreview = () => `
+<div class="app">
+  ${sb()}
+  <div class="hd"><button class="bk" data-act="hzShoot">‹</button>成片预览</div>
+  <div class="body">
+    <div class="hzbox">${vid('hp','','hz')}<div class="rlabel">原片</div></div>
+    <div class="hzbox" style="margin-top:8px"><div id="hmine">${hzRoom(0)}</div><div class="rlabel">你的版本</div></div>
+    <div style="margin-top:8px">${hzTl('ptl')}</div>
+    <div class="sec"><span>AI 帮你做了这些</span><span>1 段 · 3.9 秒</span></div>
+    <div class="card" style="padding:2px 14px">
+      ${['按原片节奏给口令：拍耳朵、愣住，2.9 秒喊「走」','盯住猫脸，边拍边自动变焦（2.0x → 0.6x）','防抖，并配上曲库里的悬疑音乐'].map(n=>`<div class="step ok"><span class="d">✓</span>${n}</div>`).join('')}
+    </div>
+  </div>
+  <div class="foot"><button class="btn" data-act="hzPublish">发布</button></div>
+</div>`;
+A.hzPreview = () => {
+  playVids();
+  const v = $('#hp');
+  loop(() => { const t = v.currentTime; $('#hmine').innerHTML = hzRoom(t); hzTlOn('ptl',t); });
 };
 
 /* ===== 交互 ===== */
@@ -673,10 +861,18 @@ const ACT = {
   toPreview:()=>go('preview'),
   publish:()=>go('done'),
   toastSave:()=>toast('已保存到相册'),
-  toastTpl:()=>toast('已存为模板：四面探头 · 7 段'),
+  toastTpl:()=>toast(S.hzDone?'已存为模板：希区柯克变焦 · 1 段':'已存为模板：四面探头 · 7 段'),
+  toDone:()=>go('done'),
+  hz:()=>{ if(!S.hzAt) S.hzAt=Date.now(); go('hz',{hzPhase:'ready'}); },
+  hzShoot:()=>go('hzShoot',{hzPhase:'ready'}),
+  hzRec:()=>go('hzShoot',{hzPhase:'rec'}),
+  hzGen:()=>{ go('hzPreview'); toast('已防抖，时长对齐原片'); },
+  hzPreview:()=>go('hzPreview'),
+  hzPublish:()=>go('done',{hzDone:true}),
   jump:el=>{
     const k = el.dataset.k; autoId++; stopVoice(); S.cap=null; resetFlow();
     if(k==='parse') S.startAt=Date.now();
+    if(k==='hz') return ACT.hz();
     go(k);
   },
   restart:()=>{autoId++; stopVoice(); S.cap=null; resetFlow(); S.startAt=null; go('ig');},
@@ -727,30 +923,40 @@ async function autoplay(){
     tap('toPrep');
     cap(3,'拍前准备：把失败提前','手机放稳、零食备好。拍到一半才发现手机动了，只能全部重来。');
     const v7 = voice(7);
-    for(let i=0;i<4;i++){ await sleep(1300); tap('check',{i}); }
+    for(let i=0;i<4;i++){ await sleep(1100); tap('check',{i}); }
     await v7; await sleep(300); tap('toShoot');
     for(let i=0;i<SH.length;i++){
       cap(3,`跟着拍：从${DNAME[SH[i]]}探头`, i===0?'箭头标出从哪边进来，白色虚影是头最后停的位置，角落的小机位图随时对照。':'跟着节拍，第 3 拍探头。');
-      if(i===0){ const v8 = voice(8); await sleep(6500); tap('record'); await v8; }
-      else { await sleep(1500); tap('record'); }
+      if(i===0){ const v8 = voice(8); await sleep(3500); tap('record'); await v8; }
+      else { await sleep(1200); tap('record'); }
       await until(()=>S.phase==='pass'||S.phase==='fail');
       if(S.phase==='fail'){
         cap(3,'慢了半拍，AI 及时拦下','只在会毁掉成片的时候打断，比如卡不上音乐。小瑕疵直接放过，因为快比完美重要。');
-        await voice(9); tap('retake'); await sleep(1500); tap('record');
+        await voice(9); tap('retake'); await sleep(1200); tap('record');
         await until(()=>S.phase==='pass');
       }
-      await sleep(1300); tap('next');
+      await sleep(1100); tap('next');
     }
     cap(4,'按原片的节奏出片','4 段素材排进 7 个位置，切点对齐音乐重音，统一天空颜色，配上曲库里的同款音乐。');
     await voice(10); await until(()=>S.view==='preview');
     cap(4,'和原片左右对比','左边原片，右边你家的猫。哪一段不满意，点一下只改那一段。');
     const v11 = voice(11);
-    await sleep(7000); tap('fb',{k:'repeat'});
+    await sleep(5500); tap('fb',{k:'repeat'});
     await v11; await sleep(800); tap('publish');
-    cap(5,'发出去了，趁热度再拍一个','北极星指标是"从刷到到发出的时长"。潮流雷达接着推荐还在上升期的潮流（Demo 中只做展示）。');
+    cap(5,'发出去了，趁热度再拍一个','潮流雷达接着推荐还在上升期的潮流，比如「希区柯克变焦」。');
     await voice(12);
-    cap(5,'抄作业','好视频的作业，AI 帮你拆好步骤，你照着抄就行。');
-    await voice(13);
+    screen.querySelector('.go.on')?.classList.add('tapme'); await sleep(900); tap('hz');
+    cap(6,'再抄一份：希区柯克变焦','先拍耳朵、愣住，最后 1 秒脸不变、背景突然拉远。动作在前，变焦在后。');
+    const v13 = voice(13); await sleep(5000);
+    screen.querySelector('.body').scrollTo({top:230,behavior:'smooth'}); await v13;
+    tap('hzShoot');
+    cap(6,'听口令往前走，变焦交给 AI','App 按原片节奏喊口令：拍耳朵、愣住、走。走的同时盯住猫脸自动变焦，再加防抖。');
+    const v14 = voice(14); await sleep(2500); tap('hzRec');
+    await until(()=>S.hzPhase==='pass'); await v14; await sleep(600); tap('hzGen');
+    cap(6,'只拍 1 段就出片','上面是电影原片，下面是你家的猫。运镜类的潮流，也能照着抄。');
+    await voice(15); await sleep(1200); tap('hzPublish');
+    cap(6,'抄作业','好视频的作业，AI 帮你拆好步骤，你照着抄就行。');
+    await voice(16);
     AUTO = false; S.sound = true;
   }catch(e){ /* 被"停止/从头演示"打断 */ }
 }
@@ -761,7 +967,8 @@ const STEPS = [
   {k:'parse',  label:'开始：AI 解析视频',     views:['parse']},
   {k:'breakdown', label:'核心：拆解 → 准备 → 拍摄', views:['breakdown','prep','shoot']},
   {k:'gen',    label:'输出：生成并预览成片',   views:['gen','preview']},
-  {k:'done',   label:'完成后：趁热度再拍一个', views:['done']}
+  {k:'done',   label:'完成后：趁热度再拍一个', views:['done']},
+  {k:'hz',     label:'加演：再抄一份希区柯克变焦', views:['hz','hzShoot','hzPreview']}
 ];
 const NOTE = {
   ig:['从刷到视频的那一刻开始','用户想拍同款的意愿，在刷到视频的瞬间最强。所以入口放在短视频平台的分享菜单里，用户不用先打开小影、再去找功能。也支持在小影首页粘贴链接。'],
@@ -771,13 +978,16 @@ const NOTE = {
   shoot:['方向指引 + 只拦致命问题','箭头标出主角从哪边进来，白色虚影标出头最后停的位置，角落的小机位图随时对照。拍完自动检查，但只在会毁掉成片时才打断（比如慢了半拍、卡不上音乐），小瑕疵直接放过：潮流窗口期短，快比完美重要。演示默认第 2 段会慢半拍。'],
   gen:['按原片的节奏出片','把 4 段素材排进原片的 7 个位置，切点对齐音乐重音，统一天空的颜色。音乐用平台曲库里的同款，不搬运原视频的画面和音轨。'],
   preview:['不满意就局部修，不用重来','左边原片、右边你的版本，同步播放。点某一段只改那一段；改一个方向时，复用了它的镜头会一起更新。也可以直接说"哪里不满意"，AI 给出对应的修正。'],
-  done:['趁热度还在，再拍一个','北极星指标是"从刷到视频到发出的时长"。发布后，潮流雷达推荐下一个还在上升期的潮流：需要实拍的进入"拍同款"，AI 特效类的直接交给特效模板。三条示例来自 10 月 28 日的抖音热榜。<br><br><b>说明：</b>正式版中这里的按钮可以直接进入对应流程；Demo 版本没有实现这一部分，只做展示，所以按钮不可点击。']
+  done:['趁热度还在，再拍一个','发布后，潮流雷达推荐下一个还在上升期的潮流：需要实拍的进入"拍同款"，AI 特效类的直接交给特效模板。<br><br><b>说明：</b>Demo 里「希区柯克变焦」可以点「拍同款」，演示运镜类的作业怎么抄；另外两条来自 10 月 28 日的抖音热榜，只做展示，按钮不可点击。'],
+  hz:['再抄一份：运镜类的作业也能拆','希区柯克变焦是经典运镜：镜头一边往前推、一边拉到广角，主角大小不变，背景越拉越远。剧组要靠轨道车和变焦镜头配合，普通人拿手机几乎做不到。它也有节奏：原片前 2.9 秒镜头不动，主角先拍耳朵、再愣住，最后不到 1 秒才变焦，动作是引子、变焦是反应。AI 把它拆成 3 拍脚本，并把"你只管往前走"，变焦这一半交给 App 在拍摄时自动完成。机位图和脚本条与原片同步：变焦开始前机位不动，开始后手机越往前推，拍进画面的背景越宽。'],
+  hzShoot:['用户只做一件事：听口令往前走','App 按原片节奏给口令：拍耳朵、愣住，第 2.9 秒喊「走」。走的同时 App 盯住猫脸，按它在画面里的大小实时调变焦：离得越近、拉得越广（2.0x → 0.6x），脸就一直一样大，背景自然越拉越远；同时开防抖。取景框里看到的就是成片，不靠拍完再裁切。下方机位图同步显示你走到了哪。拍完同样只拦致命问题，比如主角出框、走得太快。'],
+  hzPreview:['只拍 1 段就出片','上面是原片，下面是你的版本，同步播放。变焦和防抖在拍的时候就完成了，出片只需要剪成和原片一样的时长、配上曲库音乐。']
 };
 function renderNotes(){
   if(S.cap){
     const [n,t,s] = S.cap;
-    $('#notes').innerHTML = `<div class="capbox"><div class="no">STEP ${n} / 5</div><div class="ct">${t}</div><div class="cs">${s||''}</div>
-      <div class="bar">${[1,2,3,4,5].map(i=>`<i class="${i<=n?'on':''}"></i>`).join('')}</div>
+    $('#notes').innerHTML = `<div class="capbox"><div class="no">${n>5?'加演':`STEP ${n} / 5`}</div><div class="ct">${t}</div><div class="cs">${s||''}</div>
+      <div class="bar">${[1,2,3,4,5,6].map(i=>`<i class="${i<=n?'on':''}"></i>`).join('')}</div>
       <button class="stop" data-act="restart">停止自动演示</button></div>`;
     return;
   }
@@ -788,7 +998,7 @@ function renderNotes(){
     <button class="autobtn" data-act="auto">▶ 自动演示全流程（带配音，约 3 分钟，可直接录屏）</button>
     <div class="nav">${STEPS.map((s,i)=>`<button class="${s.views.includes(S.view)?'on':''}" data-act="jump" data-k="${s.k}"><span class="n">${i+1}</span>${s.label}</button>`).join('')}</div>
     <div class="note"><h2>${t}</h2><p>${p}</p></div>
-    <div class="credit">示例视频：@ccihancelik_（Instagram），配乐为音乐剧《汉密尔顿》选段，仅作演示引用。"你的版本"为示意动画。</div>`;
+    <div class="credit">示例视频：@ccihancelik_（Instagram），配乐为音乐剧《汉密尔顿》选段；希区柯克变焦片段来自电影《瞬息全宇宙》。均仅作演示引用，"你的版本"为示意动画。</div>`;
 }
 /* 浏览器不允许未经点击就出声：第一次点击页面时把原片声音打开 */
 document.addEventListener('pointerdown', () => {
